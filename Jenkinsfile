@@ -21,8 +21,10 @@ pipeline {
                 '''
             }
         }
+
         stage('Stage Test') {
-           parallel { 
+            parallel { 
+
                 stage('Unit Test') {
                     agent {
                         docker {
@@ -30,10 +32,9 @@ pipeline {
                             reuseNode true
                         }
                     }
-
                     steps {
                         sh '''
-                            #test -f build/index.html
+                            npm ci
                             npm test
                         '''
                     }
@@ -46,24 +47,24 @@ pipeline {
                             reuseNode true
                         }
                     }
-
                     steps {
                         sh '''
-                            npm install serve
-                            node_modules/.bin/serve -s build &
+                            npm ci
+                            npx serve -s build &
                             sleep 10
                             npx playwright test --reporter=junit --output=test-results
                         '''
                     }
                 }
+
             }
-        
         }
+
+    }
 
     post {
         always {
             junit 'test-results/*.xml'
         }
     }
-}
 }
