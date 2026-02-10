@@ -21,7 +21,7 @@ pipeline {
                 '''
             }
         }
-        stage('Stage Test')
+        stage('Stage Test') {
            parallel { 
                 stage('Unit Test') {
                     agent {
@@ -57,7 +57,8 @@ pipeline {
                     }
                 }
             }
-           }
+        
+        }
 
     post {
         always {
