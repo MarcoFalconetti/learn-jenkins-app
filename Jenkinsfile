@@ -12,33 +12,36 @@ pipeline {
             }
             steps {
                 sh '''
+                    ls -la
                     node --version
                     npm --version
                     npm ci
                     npm run build
+                    ls -la
                 '''
-                // Salvo la build per gli stage paralleli
-                stash includes: 'build/**', name: 'build-folder'
             }
         }
 
-        stage('Stage Test') {
+        stage('Tests') {
             parallel {
-
-                stage('Unit Test') {
+                stage('Unit tests') {
                     agent {
                         docker {
                             image 'node:18-alpine'
                             reuseNode true
                         }
                     }
+
                     steps {
-                        unstash 'build-folder'
                         sh '''
-                            npm ci
+                            #test -f build/index.html
                             npm test
                         '''
-                        stash includes: 'jest-junit.xml', name: 'unit-results', allowEmpty: true
+                    }
+                    post {
+                        always {
+                            junit 'jest-results/junit.xml'
+                        }
                     }
                 }
 
@@ -49,31 +52,38 @@ pipeline {
                             reuseNode true
                         }
                     }
+
                     steps {
-                        unstash 'build-folder'
                         sh '''
-                            npm ci
-                            npx serve -s build &
+                            npm install serve
+                            node_modules/.bin/serve -s build &
                             sleep 10
-                            npx playwright test --reporter=junit --output=test-results
+                            npx playwright test  --reporter=html
                         '''
-                        stash includes: 'test-results/*.xml', name: 'e2e-results', allowEmpty: true
+                    }
+
+                    post {
+                        always {
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+                        }
                     }
                 }
-
             }
         }
 
-    }
-
-    post {
-        always {
-            // recupero i risultati delle due pipeline parallele
-            unstash 'unit-results'
-            unstash 'e2e-results'
-
-            // pubblicazione report JUnit
-            junit '**/*.xml'
+        stage('Deploy') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                    npm install netlify-cli
+                    node_modules/.bin/netlify --version
+                '''
+            }
         }
     }
 }
